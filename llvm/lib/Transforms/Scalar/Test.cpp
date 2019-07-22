@@ -17,28 +17,26 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Transforms/Scalar/Test.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/InitializePasses.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "test"
 
 STATISTIC(TestCounter, "Counts number of functions greeted");
-
-
 namespace {
-  ModulePass* llvm::createTest() {
-	  return new Test();
-  }
   // Hello - The first implementation, without getAnalysisUsage.
-  struct Test : public ModulePass {
+  class Test : public ModulePass {
+    public:
     static char ID; // Pass identification, replacement for typeid
     Test() : ModulePass(ID) {
-      initializeTest(*PassRegistry::getPassRegistry());
+      initializeTestPass(*PassRegistry::getPassRegistry());
     }
 
     bool runOnModule(Module &M) override {
@@ -63,7 +61,6 @@ namespace {
         Value *str = B.CreateGlobalStringPtr("test");
         std::vector <Value *> int32_call_params;
         int32_call_params.push_back(str);
-        CallInst * int32_call = CallInst::Create(func_printf, int32_call_params, "call", b);
       }
       ++TestCounter;
       errs() << "Test: ";
@@ -73,12 +70,15 @@ namespace {
   };
 }
 
+
 char Test::ID = 0;
 static RegisterPass<Test> X("test", "Test Pass");
 INITIALIZE_PASS_BEGIN(Test, "test",
                       "Some description for the Pass",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass) // Or whatever your Pass dependencies
 INITIALIZE_PASS_END(Test, "test",
                     "Some description for the Pass",
 false, false)
+Pass* llvm::createTest() {
+	  return new Test();
+  }

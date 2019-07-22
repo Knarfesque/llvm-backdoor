@@ -509,6 +509,7 @@ Pass *createLoopSimplifyCFGPass();
 // transformations.
 //
 Pass *createWarnMissedTransformationsPass();
+Pass *createTest();
 } // End llvm namespace
 
 #endif
