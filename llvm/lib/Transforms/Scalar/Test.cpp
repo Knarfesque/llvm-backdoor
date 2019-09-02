@@ -21,9 +21,11 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/SourceMgr.h"
 
 using namespace llvm;
 
@@ -53,15 +55,11 @@ namespace {
 	/*...*/
 	llvm::appendToGlobalCtors(M, F, 65535, nullptr);
         B.SetInsertPoint(BB);
-	Value * x = B.getInt32(5);
-	Value * y = B.getInt32(6);
-	Value * z = B.CreateSub(y, x, "tmp");
-
-        Function *func_printf = M.getFunction("printf");
-        Value *str = B.CreateGlobalStringPtr("test");
-        std::vector <Value *> int32_call_params;
-        int32_call_params.push_back(str);
-      }
+	std::string ir_file = "/home/alouest/llvm-project/llvm/build/hello.ll";
+	llvm::LLVMContext ctx;
+	llvm::SMDiagnostic diag;
+	std::unique_ptr<Module> mod = llvm::parseIRFile(ir_file, diag, ctx);
+     }
       ++TestCounter;
       errs() << "Test: ";
       errs().write_escaped(M.getName()) << '\n';
