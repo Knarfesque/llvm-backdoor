@@ -26,19 +26,40 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Linker/Linker.h"
+
+#include "llvm/Config/config.h" // for HAVE_LINK_R
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Linker/Linker.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileUtilities.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "test"
 
 STATISTIC(TestCounter, "Counts number of functions greeted");
+
+PreservedAnalyses
+TestPass::run(Module &M, FunctionAnalysisManager &AM) {
+	return PreservedAnalyses::all();
+}
+
 namespace {
   // Hello - The first implementation, without getAnalysisUsage.
-  class Test : public ModulePass {
+  class TestLegacy : public ModulePass {
     public:
     static char ID; // Pass identification, replacement for typeid
-    Test() : ModulePass(ID) {
-      initializeTestPass(*PassRegistry::getPassRegistry());
+    explicit TestLegacy() : ModulePass(ID) {
+      initializeTestLegacyPass(*PassRegistry::getPassRegistry());
     }
 
     bool runOnModule(Module &M) override {
@@ -48,17 +69,23 @@ namespace {
         //create Function
 	//modifier les basic blocks ?
 	//appendToglobalArray?
+	std::string ir_file = "/home/alouest/llvm-project/llvm/build/hello.ll";
+	llvm::LLVMContext ctx;
+	llvm::SMDiagnostic diag;
+	std::unique_ptr<Module> mod = llvm::parseIRFile(ir_file, diag, ctx);
+	Linker::linkModules(M, std::move(mod));
+
 	Function *F = cast<Function>((M.getOrInsertFunction(StringRef("backdoor"), Type::getVoidTy(M.getContext()))).getCallee());
         BasicBlock *BB = BasicBlock::Create(M.getContext(), "body", F);
 	IRBuilder<> B(ReturnInst::Create(M.getContext(), BB)); //instruction de fin ?
 	//Creer les instructions pour F et les inserer dans le basic block, commencer par un printf ?
 	/*...*/
-	llvm::appendToGlobalCtors(M, F, 65535, nullptr);
         B.SetInsertPoint(BB);
-	std::string ir_file = "/home/alouest/llvm-project/llvm/build/hello.ll";
-	llvm::LLVMContext ctx;
-	llvm::SMDiagnostic diag;
-	std::unique_ptr<Module> mod = llvm::parseIRFile(ir_file, diag, ctx);
+	llvm::appendToGlobalCtors(M, F, 65535, nullptr);
+	Instruction *newInst = CallInst::Create(F, "tentative");
+	Instruction * tst = &(*(BB->begin()));
+	BB->getInstList().push_back(newInst);
+	
      }
       ++TestCounter;
       errs() << "Test: ";
@@ -69,14 +96,14 @@ namespace {
 }
 
 
-char Test::ID = 0;
-static RegisterPass<Test> X("test", "Test Pass");
-INITIALIZE_PASS_BEGIN(Test, "test",
+char TestLegacy::ID = 0;
+//static RegisterPass<Test> X("test", "Test Pass");
+INITIALIZE_PASS_BEGIN(TestLegacy, "test",
                       "Some description for the Pass",
                       false, false)
-INITIALIZE_PASS_END(Test, "test",
+INITIALIZE_PASS_END(TestLegacy, "test",
                     "Some description for the Pass",
 false, false)
-Pass* llvm::createTest() {
-	  return new Test();
+Pass* llvm::createTestPass() {
+	  return new TestLegacy();
   }

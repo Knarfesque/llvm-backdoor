@@ -441,7 +441,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   // Allow forcing function attributes as a debugging and tuning aid.
   MPM.add(createForceFunctionAttrsLegacyPass());
-  //MPM.add(createTest());
+  MPM.add(createTestPass());
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
   if (OptLevel == 0) {

@@ -20,16 +20,17 @@ class Function;
 class Module;
 
 // New pass manager boilerplate.
-/*class Test
-    : public PassInfoMixin<Test> {
+class TestPass
+    : public PassInfoMixin<TestPass> {
 public:
-  explicit Test() {}
+  explicit TestPass() {}
 
-};*/
+  PreservedAnalyses run(Module &F, FunctionAnalysisManager &AM);
+};
 
 // Legacy pass manager boilerplate.
-Pass *createTest();
-void initializeTestPass(PassRegistry &);
+Pass *createTestPass();
+void initializeTestLegacyPass(PassRegistry &);
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_SCALAR_TEST_H_

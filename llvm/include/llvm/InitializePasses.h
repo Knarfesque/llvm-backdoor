@@ -249,7 +249,7 @@ void initializeLowerIntrinsicsPass(PassRegistry&);
 void initializeLowerInvokeLegacyPassPass(PassRegistry&);
 void initializeLowerSwitchPass(PassRegistry&);
 void initializeLowerTypeTestsPass(PassRegistry&);
-void initializeTestPass(PassRegistry&);
+void initializeTestLegacyPass(PassRegistry&);
 void initializeMIRCanonicalizerPass(PassRegistry &);
 void initializeMIRPrintingPassPass(PassRegistry&);
 void initializeMachineBlockFrequencyInfoPass(PassRegistry&);
