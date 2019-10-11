@@ -1,9 +1,3 @@
-set(LLVM_LINK_COMPONENTS
-  AsmParser
-  core
-  linker
-  )
-
 add_llvm_library(LLVMScalarOpts
   ADCE.cpp
   AlignmentFromAssumptions.cpp

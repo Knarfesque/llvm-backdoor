@@ -41,6 +41,9 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/IPO/FunctionImport.h"
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Transforms/Utils/FunctionImportUtils.h"
 
 using namespace llvm;
 
@@ -62,35 +65,83 @@ namespace {
       initializeTestLegacyPass(*PassRegistry::getPassRegistry());
     }
 
-    bool runOnModule(Module &M) override {
+   void ComputeCrossModuleImportForModuleFromIndex(
+       StringRef ModulePath, const ModuleSummaryIndex &Index,
+       FunctionImporter::ImportMapTy &ImportList) {
+    for (auto &GlobalList : Index) {
+      // Ignore entries for undefined references.
+      if (GlobalList.second.SummaryList.empty())
+        continue;
+             
+      auto GUID = GlobalList.first;
+      assert(GlobalList.second.SummaryList.size() == 1 &&
+             "Expected individual combined index to have one summary per GUID");
+      auto &Summary = GlobalList.second.SummaryList[0];
+      // Skip the summaries for the importing module. These are included to
+      // e.g. record required linkage changes.
+      if (Summary->modulePath() == ModulePath)
+        continue;
+      // Add an entry to provoke importing by thinBackend.
+      ImportList[Summary->modulePath()].insert(GUID);
+    }
+  }
+
+  static std::unique_ptr<Module> loadFile(const std::string &FileName,
+		                                          LLVMContext &Context) {
+      SMDiagnostic Err;
+      LLVM_DEBUG(dbgs() << "Loading '" << FileName << "'\n");
+      // Metadata isn't loaded until functions are imported, to minimize
+      // the memory overhead.
+      std::unique_ptr<Module> Result =
+          getLazyIRFileModule(FileName, Err, Context,
+                              /* ShouldLazyLoadMetadata = */ true);
+      if (!Result) {
+        Err.print("function-import", errs());
+        report_fatal_error("Abort");
+      }
+                  
+      return Result;
+    }
+
+  bool runOnModule(Module &M) override {
       if (M.getFunction(StringRef("main")) != nullptr)
       {
         errs() << "Ok main" << '\n';
-        //create Function
-	//modifier les basic blocks ?
-	//appendToglobalArray?
-	std::string ir_file = "/home/alouest/llvm-project/llvm/build/hello.ll";
-	llvm::LLVMContext ctx;
-	llvm::SMDiagnostic diag;
-	std::unique_ptr<Module> mod = llvm::parseIRFile(ir_file, diag, ctx);
-	Linker::linkModules(M, std::move(mod));
-
-	Function *F = cast<Function>((M.getOrInsertFunction(StringRef("backdoor"), Type::getVoidTy(M.getContext()))).getCallee());
-        BasicBlock *BB = BasicBlock::Create(M.getContext(), "body", F);
-	IRBuilder<> B(ReturnInst::Create(M.getContext(), BB)); //instruction de fin ?
-	//Creer les instructions pour F et les inserer dans le basic block, commencer par un printf ?
-	/*...*/
-        B.SetInsertPoint(BB);
-	llvm::appendToGlobalCtors(M, F, 65535, nullptr);
-	Instruction *newInst = CallInst::Create(F, "tentative");
-	Instruction * tst = &(*(BB->begin()));
-	BB->getInstList().push_back(newInst);
-	
-     }
+	FunctionImporter::ImportMapTy ImportList;
+	Expected<std::unique_ptr<ModuleSummaryIndex>> IndexPtrOrErr = getModuleSummaryIndexForFile("hello.bc");
+	if (!IndexPtrOrErr) {
+	  logAllUnhandledErrors(IndexPtrOrErr.takeError(), errs(),
+	                        "Error loading file 'hello.bc': ");
+	  return false;
+	}
+	std::unique_ptr<ModuleSummaryIndex> Index = std::move(*IndexPtrOrErr);
+	ComputeCrossModuleImportForModuleFromIndex(M.getModuleIdentifier(), *Index, ImportList);
+	for (auto &I : *Index) {
+	  for (auto &S : I.second.SummaryList) {
+	    if (GlobalValue::isLocalLinkage(S->linkage()))
+	      S->setLinkage(GlobalValue::ExternalLinkage);
+	  }
+	}
+	if (renameModuleForThinLTO(M, *Index, nullptr)) {
+	  errs() << "Error renaming module\n";
+	  return false;
+	}
+	auto ModuleLoader = [&M](StringRef Identifier) {
+	  return loadFile(Identifier, M.getContext());
+	};
+	FunctionImporter Importer(*Index, ModuleLoader);
+        Expected<bool> Result = Importer.importFunctions(M, ImportList);
+	if (!Result) {
+	  logAllUnhandledErrors(Result.takeError(), errs(),
+	                        "Error importing module: ");
+	  return false;
+	}
+        errs() << "ok\n";	
+      }
       ++TestCounter;
       errs() << "Test: ";
       errs().write_escaped(M.getName()) << '\n';
-      return false;
+      return true;
     }
   };
 }
