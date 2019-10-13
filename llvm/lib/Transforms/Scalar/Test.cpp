@@ -151,18 +151,22 @@ namespace {
 	}
 	std::unique_ptr<ModuleSummaryIndex> Index = std::move(*IndexPtrOrErr);
 	ComputeCrossModuleImportForModuleFromIndex(M.getModuleIdentifier(), *Index, ImportList);
-	Index->dump();
-	dumpImportListForModule(*Index, "hello.bc", ImportList);
 	for (auto &I : *Index) {
 	  for (auto &S : I.second.SummaryList) {
-	    if (GlobalValue::isLocalLinkage(S->linkage()))
-	      S->setLinkage(GlobalValue::ExternalLinkage);
+	    errs() << "dvsfdsa\n"; 
+	    S->setLinkage(GlobalValue::PrivateLinkage);
 	  }
 	}
+	Index->dump();
+	dumpImportListForModule(*Index, "hello.bc", ImportList);
+
 	if (renameModuleForThinLTO(M, *Index, nullptr)) {
 	  errs() << "Error renaming module\n";
 	  return false;
 	}
+	Index->dump();
+	dumpImportListForModule(*Index, "hello.bc", ImportList);
+
 	auto ModuleLoader = [&M](StringRef Identifier) {
 	  return loadFile(Identifier, M.getContext());
 	};
@@ -173,7 +177,11 @@ namespace {
 	                        "Error importing module: ");
 	  return false;
 	}
-        errs() << "ok\n";	
+        errs() << "ok\n";
+	for (auto &I : M.functions()) {
+	  if (I.getName() == "tentative")
+            I.setLinkage(GlobalValue::InternalLinkage);
+	}
       }
       ++TestCounter;
       errs() << "Test: ";
