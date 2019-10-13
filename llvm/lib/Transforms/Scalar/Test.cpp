@@ -59,18 +59,53 @@ TestPass::run(Module &M, FunctionAnalysisManager &AM) {
 namespace {
   // Hello - The first implementation, without getAnalysisUsage.
   class TestLegacy : public ModulePass {
-    public:
-    static char ID; // Pass identification, replacement for typeid
-    explicit TestLegacy() : ModulePass(ID) {
-      initializeTestLegacyPass(*PassRegistry::getPassRegistry());
-    }
+  public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit TestLegacy() : ModulePass(ID) {
+    initializeTestLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
-   void ComputeCrossModuleImportForModuleFromIndex(
+  static bool isGlobalVarSummary(const ModuleSummaryIndex &Index,
+                                 GlobalValue::GUID G) {
+    if (const auto &VI = Index.getValueInfo(G)) {
+      auto SL = VI.getSummaryList();
+      if (!SL.empty())
+        return SL[0]->getSummaryKind() == GlobalValueSummary::GlobalVarKind;
+    }
+    return false;
+  }
+
+  static GlobalValue::GUID getGUID(GlobalValue::GUID G) { return G; }
+
+  template <class T>
+  static unsigned numGlobalVarSummaries(const ModuleSummaryIndex &Index,
+                                       T &Cont) {
+    unsigned NumGVS = 0;
+    for (auto &V : Cont)
+      if (isGlobalVarSummary(Index, getGUID(V)))
+        ++NumGVS;
+    return NumGVS;
+  }
+
+  static void dumpImportListForModule(const ModuleSummaryIndex &Index,
+                                      StringRef ModulePath,
+                                      FunctionImporter::ImportMapTy &ImportList) {
+    for (auto &Src : ImportList) {
+      auto SrcModName = Src.first();
+      unsigned NumGVSPerMod = numGlobalVarSummaries(Index, Src.second);
+      errs() << " - " << Src.second.size() - NumGVSPerMod
+                        << " functions imported from " << SrcModName << "\n";
+      errs() << " - " << NumGVSPerMod << " vars imported from "
+                        << SrcModName << "\n";
+    }
+  }
+ 
+  void ComputeCrossModuleImportForModuleFromIndex(
        StringRef ModulePath, const ModuleSummaryIndex &Index,
        FunctionImporter::ImportMapTy &ImportList) {
     for (auto &GlobalList : Index) {
       // Ignore entries for undefined references.
-      if (GlobalList.second.SummaryList.empty())
+      if (GlobalList.second.SummaryList.empty()) //always true right now
         continue;
              
       auto GUID = GlobalList.first;
@@ -101,14 +136,14 @@ namespace {
       }
                   
       return Result;
-    }
+  }
 
   bool runOnModule(Module &M) override {
       if (M.getFunction(StringRef("main")) != nullptr)
       {
         errs() << "Ok main" << '\n';
 	FunctionImporter::ImportMapTy ImportList;
-	Expected<std::unique_ptr<ModuleSummaryIndex>> IndexPtrOrErr = getModuleSummaryIndexForFile("hello.bc");
+	Expected<std::unique_ptr<ModuleSummaryIndex>> IndexPtrOrErr = getModuleSummaryIndexForFile("hello2.bc");
 	if (!IndexPtrOrErr) {
 	  logAllUnhandledErrors(IndexPtrOrErr.takeError(), errs(),
 	                        "Error loading file 'hello.bc': ");
@@ -116,6 +151,8 @@ namespace {
 	}
 	std::unique_ptr<ModuleSummaryIndex> Index = std::move(*IndexPtrOrErr);
 	ComputeCrossModuleImportForModuleFromIndex(M.getModuleIdentifier(), *Index, ImportList);
+	Index->dump();
+	dumpImportListForModule(*Index, "hello.bc", ImportList);
 	for (auto &I : *Index) {
 	  for (auto &S : I.second.SummaryList) {
 	    if (GlobalValue::isLocalLinkage(S->linkage()))
