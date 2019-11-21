@@ -1,0 +1,9 @@
+diff a/llvm/examples/CMakeLists.txt b/llvm/examples/CMakeLists.txt	(rejected hunks)
+@@ -6,6 +6,7 @@
+ add_subdirectory(Kaleidoscope)
+ add_subdirectory(ModuleMaker)
+ add_subdirectory(SpeculativeJIT)
++add_subdirectory(Bye)
+ 
+ if(LLVM_ENABLE_EH AND (NOT WIN32) AND (NOT "${LLVM_NATIVE_ARCH}" STREQUAL "ARM"))
+     add_subdirectory(ExceptionDemo)

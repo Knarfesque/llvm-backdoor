@@ -230,6 +230,7 @@
 ; CHECK-O-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O-NEXT: Running pass: Float2IntPass
 ; CHECK-EP-VECTORIZER-START-NEXT: Running pass: NoOpFunctionPass
+; CHECK-EXT: Running pass: {anonymous}::Bye on foo
 ; CHECK-O-NEXT: Running pass: FunctionToLoopPassAdaptor<{{.*}}LoopRotatePass
 ; CHECK-O-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O-NEXT: Running pass: LoopSimplifyPass

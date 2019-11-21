@@ -470,12 +470,6 @@ static TargetMachine* GetTargetMachine(Triple TheTriple, StringRef CPUStr,
                                         getCodeModel(), GetCodeGenOptLevel());
 }
 
-#ifdef LINK_POLLY_INTO_TOOLS
-namespace polly {
-void initializePollyPasses(llvm::PassRegistry &Registry);
-}
-#endif
-
 //===----------------------------------------------------------------------===//
 // main for opt
 //
@@ -529,10 +523,6 @@ int main(int argc, char **argv) {
   initializeWasmEHPreparePass(Registry);
   initializeWriteBitcodePassPass(Registry);
   initializeHardwareLoopsPass(Registry);
-
-#ifdef LINK_POLLY_INTO_TOOLS
-  polly::initializePollyPasses(Registry);
-#endif
 
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
